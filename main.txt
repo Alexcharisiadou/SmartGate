@@ -44,7 +44,7 @@ char pass[] = "";
 #define LED_G       25
 #define LED_B       26
 #define RELAY_PIN    5
-#define DHT_PIN     34
+#define DHT_PIN     12
 #define DHT_TYPE    DHT22
 
 // Κατώφλι θερμοκρασίας για alert (°C)
