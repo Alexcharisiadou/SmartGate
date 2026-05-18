@@ -1,0 +1,380 @@
+#include <Wire.h>
+#include <Keypad.h>
+#include <ESP32Servo.h>
+#include <LiquidCrystal_I2C.h>
+#include <DHT.h>
+
+// ════════════════════════════════════════════════════════
+//   BLYNK CONFIG
+// ════════════════════════════════════════════════════════
+#define BLYNK_TEMPLATE_ID   "TMPL4XmSQac7Q"
+#define BLYNK_TEMPLATE_NAME "gate"
+#define BLYNK_AUTH_TOKEN    "-yBI1zKh00tYdjzArlafDmm_LObfQOot"
+
+#define BLYNK_PRINT Serial
+#include <WiFi.h>
+#include <BlynkSimpleEsp32.h>
+
+// ════════════════════════════════════════════════════════
+//   WIFI — για Wokwi Simulator
+// ════════════════════════════════════════════════════════
+char ssid[] = "Wokwi-GUEST";
+char pass[] = "";
+
+// ════════════════════════════════════════════════════════
+//   VIRTUAL PINS
+// ════════════════════════════════════════════════════════
+#define VP_GATE_CONTROL  V0
+#define VP_GATE_STATUS   V1
+#define VP_DISTANCE      V2
+#define VP_LAST_EVENT    V3
+#define VP_OBSTACLE      V4
+#define VP_TEMPERATURE   V5
+#define VP_HUMIDITY      V6
+#define VP_TEMP_ALERT    V7
+
+// ════════════════════════════════════════════════════════
+//   HARDWARE PINS
+// ════════════════════════════════════════════════════════
+#define SERVO_PIN   32
+#define TRIG_PIN    13
+#define ECHO_PIN    14
+#define BUZZER_PIN  16
+#define LED_R        2
+#define LED_G       25
+#define LED_B       26
+#define RELAY_PIN    5
+#define DHT_PIN     34
+#define DHT_TYPE    DHT22
+
+// Κατώφλι θερμοκρασίας για alert (°C)
+#define TEMP_THRESHOLD 35.0
+
+// ════════════════════════════════════════════════════════
+//   OBJECTS
+// ════════════════════════════════════════════════════════
+Servo gateServo;
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+DHT dht(DHT_PIN, DHT_TYPE);
+
+const byte ROWS = 4;
+const byte COLS = 4;
+
+char keys[ROWS][COLS] = {
+  {'1','2','3','A'},
+  {'4','5','6','B'},
+  {'7','8','9','C'},
+  {'*','0','#','D'}
+};
+
+byte rowPins[ROWS] = {23, 19, 18, 17};
+byte colPins[COLS] = {33,  4, 15, 27};
+
+Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
+
+// ════════════════════════════════════════════════════════
+//   STATE
+// ════════════════════════════════════════════════════════
+const String CORRECT_PIN = "1234";
+String enteredPin = "";
+bool gateOpen = false;
+unsigned long gateOpenTime = 0;
+const unsigned long GATE_OPEN_DURATION = 8000;
+
+BlynkTimer timer;
+
+// ════════════════════════════════════════════════════════
+//   PROTOTYPES
+// ════════════════════════════════════════════════════════
+void checkKeypad();
+void grantAccess(String method);
+void denyAccess(String reason);
+void openGate();
+void closeGate();
+void showIdle();
+long getDistance();
+void buzzerOK();
+void buzzerFail();
+void setRGB(bool r, bool g, bool b);
+void sendSensorData();
+void logEvent(String event);
+void checkTemp();
+
+// ════════════════════════════════════════════════════════
+//   BLYNK: Εντολή από dashboard (V0)
+// ════════════════════════════════════════════════════════
+BLYNK_WRITE(VP_GATE_CONTROL) {
+  int val = param.asInt();
+  if (val == 1 && !gateOpen) {
+    grantAccess("Blynk App");
+  } else if (val == 0 && gateOpen) {
+    closeGate();
+    logEvent("Remote CLOSE");
+  }
+}
+
+// ════════════════════════════════════════════════════════
+//   SETUP
+// ════════════════════════════════════════════════════════
+void setup() {
+  Serial.begin(115200);
+  delay(100);
+  Serial.println("\nSYSTEM STARTING...");
+
+  gateServo.attach(SERVO_PIN, 500, 2400);
+  gateServo.write(0);
+
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  digitalWrite(TRIG_PIN, LOW);
+
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+
+  pinMode(LED_R, OUTPUT);
+  pinMode(LED_G, OUTPUT);
+  pinMode(LED_B, OUTPUT);
+  setRGB(false, false, false);
+
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, LOW);
+
+  dht.begin();
+
+  Wire.begin(21, 22);
+  lcd.init();
+  lcd.backlight();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(" SMART GATE ");
+  lcd.setCursor(0, 1);
+  lcd.print(" Connecting...");
+
+  Serial.println("Connecting to WiFi + Blynk...");
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+  Serial.println("Blynk CONNECTED");
+
+  setRGB(false, false, true);
+  buzzerOK();
+  delay(400);
+  setRGB(false, false, false);
+
+  timer.setInterval(2000L, sendSensorData);
+  timer.setInterval(3000L, checkTemp);
+
+  showIdle();
+  logEvent("System START");
+  Serial.println("SYSTEM READY");
+}
+
+// ════════════════════════════════════════════════════════
+//   LOOP
+// ════════════════════════════════════════════════════════
+void loop() {
+  Blynk.run();
+  timer.run();
+
+  if (gateOpen && (millis() - gateOpenTime >= GATE_OPEN_DURATION)) {
+    long distance = getDistance();
+    if (distance > 20 || distance >= 999) {
+      closeGate();
+    } else {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("OBSTACLE FOUND!");
+      lcd.setCursor(0, 1);
+      lcd.print("Waiting...");
+      Blynk.virtualWrite(VP_OBSTACLE, 1);
+      logEvent("Obstacle detected");
+      gateOpenTime = millis();
+    }
+  }
+
+  checkKeypad();
+}
+
+// ════════════════════════════════════════════════════════
+//   TEMP SENSOR CHECK (κάθε 3 δευτερόλεπτα)
+// ════════════════════════════════════════════════════════
+void checkTemp() {
+  float temp = dht.readTemperature();
+  float hum  = dht.readHumidity();
+
+  if (isnan(temp) || isnan(hum)) {
+    Serial.println("DHT read error!");
+    return;
+  }
+
+  Serial.print("TEMP: "); Serial.print(temp); Serial.print(" °C  HUM: "); Serial.println(hum);
+
+  Blynk.virtualWrite(VP_TEMPERATURE, temp);
+  Blynk.virtualWrite(VP_HUMIDITY, hum);
+
+  if (temp > TEMP_THRESHOLD) {
+    Blynk.virtualWrite(VP_TEMP_ALERT, 1);
+    logEvent("TEMP ALERT! " + String(temp) + "C");
+    setRGB(true, false, false);
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("!! TEMP ALERT !!");
+    lcd.setCursor(0, 1);
+    lcd.print(String(temp) + "C  " + String(hum) + "%");
+    buzzerFail();
+  } else {
+    Blynk.virtualWrite(VP_TEMP_ALERT, 0);
+  }
+}
+
+// ════════════════════════════════════════════════════════
+//   SEND SENSOR DATA (κάθε 2 δευτερόλεπτα)
+// ════════════════════════════════════════════════════════
+void sendSensorData() {
+  long dist = getDistance();
+  Blynk.virtualWrite(VP_DISTANCE, dist >= 999 ? 0 : dist);
+  Blynk.virtualWrite(VP_GATE_STATUS, gateOpen ? 1 : 0);
+  Blynk.virtualWrite(VP_OBSTACLE, 0);
+}
+
+// ════════════════════════════════════════════════════════
+//   LOG EVENT
+// ════════════════════════════════════════════════════════
+void logEvent(String event) {
+  Serial.println("EVENT: " + event);
+  Blynk.virtualWrite(VP_LAST_EVENT, event);
+}
+
+// ════════════════════════════════════════════════════════
+//   KEYPAD CHECK
+// ════════════════════════════════════════════════════════
+void checkKeypad() {
+  char key = keypad.getKey();
+  if (!key) return;
+
+  Serial.print("Key pressed: ");
+  Serial.println(key);
+
+  if (key == '#') {
+    if (enteredPin == CORRECT_PIN) {
+      grantAccess("PIN OK");
+    } else {
+      denyAccess("WRONG PIN");
+    }
+    enteredPin = "";
+  } else if (key == '*') {
+    enteredPin = "";
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("PIN CLEARED");
+    delay(800);
+    showIdle();
+  } else {
+    if (enteredPin.length() < 8) {
+      enteredPin += key;
+    }
+    lcd.setCursor(0, 0);
+    lcd.print("ENTER PIN:      ");
+    lcd.setCursor(0, 1);
+    for (size_t i = 0; i < enteredPin.length(); i++) lcd.print('*');
+    for (size_t i = enteredPin.length(); i < 16; i++) lcd.print(' ');
+  }
+}
+
+// ════════════════════════════════════════════════════════
+//   ACCESS GRANTED / DENIED
+// ════════════════════════════════════════════════════════
+void grantAccess(String method) {
+  Serial.println("ACCESS GRANTED - " + method);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(" ACCESS OK!");
+  lcd.setCursor(0, 1);
+  lcd.print(method);
+  logEvent("GRANTED: " + method);
+  setRGB(false, true, false);
+  digitalWrite(RELAY_PIN, HIGH);
+  openGate();
+  buzzerOK();
+}
+
+void denyAccess(String reason) {
+  Serial.println("ACCESS DENIED - " + reason);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("ACCESS DENIED");
+  lcd.setCursor(0, 1);
+  lcd.print(reason);
+  logEvent("DENIED: " + reason);
+  setRGB(true, false, false);
+  buzzerFail();
+  delay(1500);
+  setRGB(false, false, false);
+  showIdle();
+}
+
+// ════════════════════════════════════════════════════════
+//   GATE OPEN / CLOSE
+// ════════════════════════════════════════════════════════
+void openGate() {
+  Serial.println("GATE OPENING...");
+  gateServo.write(90);
+  gateOpen = true;
+  gateOpenTime = millis();
+  Blynk.virtualWrite(VP_GATE_STATUS, 1);
+  Blynk.virtualWrite(VP_GATE_CONTROL, 1);
+}
+
+void closeGate() {
+  Serial.println("GATE CLOSING...");
+  gateServo.write(0);
+  gateOpen = false;
+  digitalWrite(RELAY_PIN, LOW);
+  setRGB(false, false, false);
+  Blynk.virtualWrite(VP_GATE_STATUS, 0);
+  Blynk.virtualWrite(VP_GATE_CONTROL, 0);
+  Blynk.virtualWrite(VP_OBSTACLE, 0);
+  logEvent("Gate CLOSED");
+  showIdle();
+}
+
+// ════════════════════════════════════════════════════════
+//   ULTRASONIC
+// ════════════════════════════════════════════════════════
+long getDistance() {
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+  long duration = pulseIn(ECHO_PIN, HIGH, 30000);
+  if (duration == 0) return 999;
+  return (long)(duration * 0.0343 / 2.0);
+}
+
+// ════════════════════════════════════════════════════════
+//   RGB / BUZZER / IDLE
+// ════════════════════════════════════════════════════════
+void setRGB(bool r, bool g, bool b) {
+  digitalWrite(LED_R, r ? LOW : HIGH);
+  digitalWrite(LED_G, g ? LOW : HIGH);
+  digitalWrite(LED_B, b ? LOW : HIGH);
+}
+
+void buzzerOK() {
+  for (int i = 0; i < 2; i++) {
+    digitalWrite(BUZZER_PIN, HIGH); delay(100);
+    digitalWrite(BUZZER_PIN, LOW);  delay(80);
+  }
+}
+
+void buzzerFail() {
+  digitalWrite(BUZZER_PIN, HIGH); delay(500);
+  digitalWrite(BUZZER_PIN, LOW);
+}
+
+void showIdle() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Enter PIN + #");
+  lcd.setCursor(0, 1);
+  lcd.print("(* to clear)");
+}
