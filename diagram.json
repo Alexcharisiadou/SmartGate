@@ -115,7 +115,7 @@
     [ "relay1:GND", "esp:GND.1", "black", [ "h-9.6", "v230", "h239.85" ] ],
     [ "dht1:VCC", "esp:5V", "red", [ "v38.4", "h393.45" ] ],
     [ "dht1:GND", "esp:GND.1", "black", [ "v-9.6", "h422.25" ] ],
-    [ "dht1:SDA", "esp:34", "yellow", [ "v19.2", "h48.1", "v-115.2" ] ]
+    [ "dht1:SDA", "esp:12", "yellow", [ "v19.2", "h48.1", "v-115.2" ] ]
   ],
   "dependencies": {}
 }
