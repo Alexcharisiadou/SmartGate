@@ -3,65 +3,119 @@
   "author": "Σπυρος Ροϊδος",
   "editor": "wokwi",
   "parts": [
-    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": -604.8, "left": -417.56, "attrs": {} },
+    {
+      "type": "board-esp32-devkit-c-v4",
+      "id": "esp",
+      "top": -604.8,
+      "left": -417.56,
+      "attrs": {}
+    },
     { "type": "wokwi-servo", "id": "servo1", "top": -126.8, "left": -470.4, "attrs": {} },
-    { "type": "wokwi-membrane-keypad", "id": "keypad1", "top": -443.6, "left": -71.2, "attrs": {} },
-    { "type": "wokwi-lcd1602", "id": "lcd1", "top": -598.4, "left": -80.8, "attrs": { "pins": "i2c" } },
-    { "type": "wokwi-buzzer", "id": "bz1", "top": -765.6, "left": -334.2, "attrs": { "volume": "0.1" } },
-    { "type": "wokwi-hc-sr04", "id": "ultrasonic1", "top": -833.7, "left": -829.7, "attrs": {} },
-    { "type": "wokwi-rgb-led", "id": "rgb1", "top": -869.6, "left": -258.1, "attrs": { "common": "anode" } },
-    { "type": "wokwi-resistor", "id": "r1", "top": -734.4, "left": -259.75, "rotate": 90, "attrs": { "value": "220" } },
-    { "type": "wokwi-resistor", "id": "r2", "top": -772.8, "left": -278.95, "rotate": 90, "attrs": { "value": "220" } },
-    { "type": "wokwi-resistor", "id": "r3", "top": -744, "left": -240.55, "rotate": 90, "attrs": { "value": "220" } },
+    {
+      "type": "wokwi-membrane-keypad",
+      "id": "keypad1",
+      "top": -443.6,
+      "left": -71.2,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-lcd1602",
+      "id": "lcd1",
+      "top": -598.4,
+      "left": -80.8,
+      "attrs": { "pins": "i2c" }
+    },
+    {
+      "type": "wokwi-buzzer",
+      "id": "bz1",
+      "top": -765.6,
+      "left": -334.2,
+      "attrs": { "volume": "0.1" }
+    },
+    {
+      "type": "wokwi-hc-sr04",
+      "id": "ultrasonic1",
+      "top": -833.7,
+      "left": -829.7,
+      "attrs": { "distance": "56" }
+    },
+    {
+      "type": "wokwi-rgb-led",
+      "id": "rgb1",
+      "top": -869.6,
+      "left": -258.1,
+      "attrs": { "common": "anode" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": -734.4,
+      "left": -259.75,
+      "rotate": 90,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": -772.8,
+      "left": -278.95,
+      "rotate": 90,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r3",
+      "top": -744,
+      "left": -240.55,
+      "rotate": 90,
+      "attrs": { "value": "220" }
+    },
     { "type": "wokwi-relay-module", "id": "relay1", "top": -710.2, "left": -643.2, "attrs": {} },
-    { "type": "wokwi-mq2", "id": "mq2", "top": -560, "left": -829.7, "attrs": {} }
+    {
+      "type": "wokwi-dht22",
+      "id": "dht1",
+      "top": -556.5,
+      "left": -879,
+      "attrs": { "temperature": "55.4" }
+    }
   ],
   "connections": [
     [ "esp:TX", "$serialMonitor:RX", "", [] ],
     [ "esp:RX", "$serialMonitor:TX", "", [] ],
-
-    [ "lcd1:SCL", "esp:22", "green", [] ],
-    [ "lcd1:SDA", "esp:21", "green", [] ],
-    [ "lcd1:GND", "esp:GND.2", "black", [] ],
-    [ "lcd1:VCC", "esp:5V", "red", [] ],
-
-    [ "servo1:PWM", "esp:32", "orange", [] ],
-    [ "servo1:V+", "esp:5V", "red", [] ],
-    [ "servo1:GND", "esp:GND.1", "black", [] ],
-
-    [ "keypad1:R1", "esp:23", "blue", [] ],
-    [ "keypad1:R2", "esp:19", "blue", [] ],
-    [ "keypad1:R3", "esp:18", "blue", [] ],
-    [ "keypad1:R4", "esp:17", "blue", [] ],
-    [ "keypad1:C1", "esp:33", "blue", [] ],
-    [ "keypad1:C2", "esp:4",  "blue", [] ],
-    [ "keypad1:C3", "esp:15", "blue", [] ],
-    [ "keypad1:C4", "esp:27", "blue", [] ],
-
-    [ "ultrasonic1:TRIG", "esp:13", "green", [] ],
-    [ "ultrasonic1:ECHO", "esp:14", "green", [] ],
-    [ "ultrasonic1:VCC", "esp:5V", "red", [] ],
-    [ "ultrasonic1:GND", "esp:GND.1", "black", [] ],
-
-    [ "bz1:1", "esp:GND.2", "black", [] ],
-    [ "bz1:2", "esp:16", "violet", [] ],
-
-    [ "rgb1:COM", "esp:3V3", "red", [] ],
-    [ "r2:1", "rgb1:R", "red",   [] ],
-    [ "r2:2", "esp:2",  "red",   [] ],
+    [ "lcd1:SCL", "esp:22", "green", [ "v0.3", "h-182.4", "v-19.2" ] ],
+    [ "lcd1:SDA", "esp:21", "green", [ "h-192", "v19.4" ] ],
+    [ "lcd1:GND", "esp:GND.2", "black", [ "v-19.2", "h-240" ] ],
+    [ "lcd1:VCC", "esp:5V", "red", [ "v0.1", "h-172.8", "v172.8", "h-163.35" ] ],
+    [ "servo1:PWM", "esp:32", "orange", [ "h-48", "v-460.6" ] ],
+    [ "servo1:V+", "esp:5V", "red", [ "h-38.4", "v-335.9" ] ],
+    [ "servo1:GND", "esp:GND.1", "black", [ "h-28.8", "v-374.4" ] ],
+    [ "keypad1:R1", "esp:23", "blue", [ "h-134.4", "v-460.8", "h-211.2" ] ],
+    [ "keypad1:R2", "esp:19", "blue", [ "h-163.6", "v-403.2" ] ],
+    [ "keypad1:R3", "esp:18", "blue", [ "h-182.7", "v-393.6" ] ],
+    [ "keypad1:R4", "esp:17", "blue", [ "h-345.8", "v-374.4" ] ],
+    [ "keypad1:C1", "esp:33", "blue", [ "h-528.1", "v-403.2" ] ],
+    [ "keypad1:C2", "esp:4", "blue", [ "h-374.4", "v-355.2" ] ],
+    [ "keypad1:C3", "esp:15", "blue", [ "h-393.75", "v-326.4" ] ],
+    [ "keypad1:C4", "esp:27", "blue", [ "h-547.5", "v-374.4" ] ],
+    [ "ultrasonic1:TRIG", "esp:13", "green", [ "h-0.4", "v297.6" ] ],
+    [ "ultrasonic1:ECHO", "esp:14", "green", [ "h-0.8", "v268.8" ] ],
+    [ "ultrasonic1:VCC", "esp:5V", "red", [ "v336" ] ],
+    [ "ultrasonic1:GND", "esp:GND.1", "black", [ "h-1.2", "v288", "h316.65" ] ],
+    [ "bz1:1", "esp:GND.2", "black", [ "h-9.6", "v105.6" ] ],
+    [ "bz1:2", "esp:16", "violet", [ "h-0.4", "v211.2" ] ],
+    [ "rgb1:COM", "esp:3V3", "red", [ "h-191.9", "v239.6" ] ],
+    [ "r2:1", "rgb1:R", "red", [] ],
+    [ "r2:2", "esp:2", "red", [ "v296.4" ] ],
     [ "r1:1", "rgb1:G", "green", [] ],
-    [ "r1:2", "esp:25", "green", [] ],
-    [ "r3:1", "rgb1:B", "blue",  [] ],
-    [ "r3:2", "esp:26", "blue",  [] ],
-
-    [ "relay1:IN",  "esp:5",   "green", [] ],
-    [ "relay1:VCC", "esp:5V",  "red",   [] ],
-    [ "relay1:GND", "esp:GND.1", "black", [] ],
-
-    [ "mq2:VCC", "esp:5V",    "red",   [] ],
-    [ "mq2:GND", "esp:GND.1", "black", [] ],
-    [ "mq2:AOUT","esp:34",    "yellow",[] ],
-    [ "mq2:DOUT","esp:35",    "orange",[] ]
+    [ "r1:2", "esp:25", "green", [ "v94.8", "h-192", "v105.6" ] ],
+    [ "r3:1", "rgb1:B", "blue", [ "v-57.6" ] ],
+    [ "r3:2", "esp:26", "blue", [ "v219.6", "h-201.75" ] ],
+    [ "relay1:IN", "esp:5", "green", [ "v57.4", "h336", "v124.8" ] ],
+    [ "relay1:VCC", "esp:5V", "red", [ "h-19.2", "v288" ] ],
+    [ "relay1:GND", "esp:GND.1", "black", [ "h-9.6", "v230", "h239.85" ] ],
+    [ "dht1:VCC", "esp:5V", "red", [ "v38.4", "h393.45" ] ],
+    [ "dht1:GND", "esp:GND.1", "black", [ "v-9.6", "h422.25" ] ],
+    [ "dht1:SDA", "esp:34", "yellow", [ "v19.2", "h48.1", "v-115.2" ] ]
   ],
   "dependencies": {}
 }
